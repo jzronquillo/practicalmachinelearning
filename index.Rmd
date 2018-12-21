@@ -1,0 +1,128 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Janine Dayanara Ronquillo"
+date: "December 20, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Using the data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, this project aims to predict the manner in which they did exercise.
+
+###GETTING AND CLEANING THE DATA
+```{r,results='hide'}
+  # Download Data
+    UrlTrain <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+    UrlTest  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+    
+    training <- read.csv(url(UrlTrain))
+    testing  <- read.csv(url(UrlTest))
+  
+  # Partition training data set
+    library(caret)
+    inTrain  <- createDataPartition(training$classe, p=0.7, list=FALSE)
+    inTrainSet <- training[inTrain, ]
+    inTestSet  <- training[-inTrain, ]
+    dim(inTrainSet)
+    dim(inTestSet)
+  
+  # Clean the data
+  # remove vars with Nearly Zero Variance
+    zerovar <- nearZeroVar(inTrainSet)
+    inTrainSet <- inTrainSet[, -zerovar]
+    inTestSet  <- inTestSet[, -zerovar]
+    dim(inTrainSet)
+    dim(inTestSet)
+  
+  # remove vars with mostly NA
+    navars <- sapply(inTrainSet, function(x) mean(is.na(x))) > 0.95
+    inTrainSet <- inTrainSet[, navars==FALSE]
+    inTestSet <- inTestSet[, navars==FALSE]
+    dim(inTrainSet)
+    dim(inTestSet)
+  
+  # remove identification vars (columns 1 to 5)
+    inTrainSet <- inTrainSet[, -(1:5)]
+    inTestSet  <- inTestSet[, -(1:5)]
+    dim(inTrainSet)
+    dim(inTestSet)
+```
+### MODELLING
+
+```{r,results='hide'}   
+    memory.limit() #Check and set memory limit
+    memory.limit(size=6000)
+    
+  # Model 1: Random Forest
+      # Fit Model
+      library(caret)
+      set.seed(26)
+      controlrf<-trainControl(method = "cv",
+                       number = 3,
+                       verboseIter = FALSE
+                       )
+      modelrf<-train(classe~.,data=inTrainSet,method="rf",prox=TRUE,trControl=controlrf)
+      modelrf$finalModel
+      #Prediction
+      predictionrf<-predict(modelrf,newdata=inTestSet)
+```  
+    
+```{r}
+      #Confusion Matrix
+      confusionMatrix(predictionrf,inTestSet$classe)
+```
+
+```{r,results='hide'} 
+  # Model2 : Predicting with Trees
+      # Fit Model
+        set.seed(26)
+        modeldt<-train(classe~.,data=inTrainSet,method="rpart")
+        modeldt$finalModel
+      #Prediction
+        predictiondt<-predict(modeldt,newdata=inTestSet)
+```  
+    
+```{r}
+      #Confusion Matrix
+        confusionMatrix(predictiondt,inTestSet$classe)
+```
+
+```{r,results='hide'} 
+  # Model 3 : Bagging 
+      # Fit Model
+        set.seed(26)
+        modeltb<-train(classe~.,data=inTrainSet,method="treebag")
+        modeltb$finalModel
+      #Prediction
+        predictiontb<-predict(modeltb,newdata=inTestSet)
+```  
+    
+```{r}
+      #Confusion Matrix
+        confusionMatrix(predictiontb,inTestSet$classe)
+```
+
+```{r,results='hide'}
+  # Model 4 : Boosting
+      # Fit Model
+        set.seed(26)
+        library(gbm)
+        modelgbm<-train(classe~.,data=inTrainSet,method="gbm",verbose=FALSE)
+        modelgbm$finalModel
+      #Prediction
+        predictiongbm<-predict(modelgbm,newdata=inTestSet)
+```  
+    
+```{r}        
+      #Confusion Matrix
+      confusionMatrix(predictiongbm,inTestSet$classe)
+```
+Since Random Forest has the highest accuracy among the 4 methods, rf was chosen to predict the 20 quiz results (testing dataset) as shown below.
+
+```{r}
+    predictTest <- predict(modelrf, newdata=testing)
+    predictTest
+```
+
